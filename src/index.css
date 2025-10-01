@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Styles globaux pour un design moderne */
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  }
+  
+  /* Scrollbars personnalisées */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+}
+
+@layer components {
+  /* Cards modernes */
+  .modern-card {
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200;
+  }
+  
+  /* Boutons stylés */
+  .btn-primary {
+    @apply bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors duration-200;
+  }
+  
+  /* Animations */
+  .fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  .slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideUp {
+    from {
+      transform: translateY(10px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  /* Styles pour les graphiques */
+  .recharts-wrapper {
+    @apply rounded-xl;
+  }
+  
+  .recharts-cartesian-grid-horizontal line,
+  .recharts-cartesian-grid-vertical line {
+    @apply stroke-gray-200;
+  }
+  
+  .recharts-tooltip-wrapper {
+    @apply drop-shadow-lg;
+  }
+  
+  /* Focus states améliorés */
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-white;
+  }
+  
+  /* Transitions fluides */
+  .transition-smooth {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Styles spécifiques pour la sidebar */
+.sidebar-item {
+  @apply relative overflow-hidden;
+}
+
+.sidebar-item::before {
+  content: '';
+  @apply absolute left-0 top-0 w-1 h-full bg-blue-600 transform -translate-x-full transition-transform duration-200;
+}
+
+.sidebar-item.active::before {
+  @apply translate-x-0;
+}
+
+/* Améliorations pour les cards de stats */
+.stat-card {
+  @apply relative overflow-hidden;
+}
+
+.stat-card::before {
+  content: '';
+  @apply absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 transform -translate-y-full transition-transform duration-300;
+}
+
+.stat-card:hover::before {
+  @apply translate-y-0;
+}
+
+/* Styles pour les notifications/badges */
+.notification-dot {
+  @apply animate-pulse;
+}
+
+/* Responsive typography */
+@screen sm {
+  .text-responsive-lg {
+    @apply text-2xl;
+  }
+}
+
+@screen lg {
+  .text-responsive-lg {
+    @apply text-3xl;
+  }
+}
