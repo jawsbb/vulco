@@ -6,6 +6,18 @@ interface LineChartProps {
   data: HistoriqueMensuel[];
 }
 
+interface TooltipEntry {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string;
+}
+
 export const LineChart: React.FC<LineChartProps> = ({ data }) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('fr-FR', {
@@ -24,12 +36,12 @@ export const LineChart: React.FC<LineChartProps> = ({ data }) => {
     });
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900 mb-2">{formatDate(label)}</p>
-          {payload.map((entry: any, index: number) => (
+          <p className="font-semibold text-gray-900 mb-2">{formatDate(label ?? '')}</p>
+          {payload.map((entry, index) => (
             <div key={index} className="flex items-center gap-2">
               <div 
                 className="w-3 h-3 rounded-full" 

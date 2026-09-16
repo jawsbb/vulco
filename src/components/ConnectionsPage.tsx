@@ -1,14 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { Upload, CheckCircle2, XCircle, FileSpreadsheet, Link as LinkIcon } from 'lucide-react';
+import { Upload, CheckCircle2, XCircle, FileSpreadsheet, Link as LinkIcon, Database } from 'lucide-react';
 import { usePatrimoine } from '../hooks/usePatrimoine';
-import { parseCSV, buildComptesFromCsv, buildPlacementsFromCsv } from '../utils/csvImport';
+import { parseCSV, buildComptesFromCsv, buildPlacementsFromCsv, normalizeData } from '../utils/csvImport';
 
 type ImportKind = 'bank' | 'broker';
 
 export const ConnectionsPage: React.FC = () => {
   const {
     addCompte,
-    addPlacement
+    addPlacement,
+    replaceAllData
   } = usePatrimoine();
 
   const [selectedKind, setSelectedKind] = useState<ImportKind>('bank');
@@ -16,6 +17,7 @@ export const ConnectionsPage: React.FC = () => {
   const [rows, setRows] = useState<string[][]>([]);
   const [error, setError] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
+  const [jsonMsg, setJsonMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const preview = useMemo(() => rows.slice(0, 6), [rows]);
 
@@ -32,9 +34,24 @@ export const ConnectionsPage: React.FC = () => {
         return;
       }
       setRows(parsed);
-    } catch (e: any) {
-      setError(e?.message || 'Erreur lors de la lecture du fichier.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la lecture du fichier.');
       setRows([]);
+    }
+  };
+
+  const handleRestoreJSON = async (file: File) => {
+    setJsonMsg(null);
+    try {
+      const restored = normalizeData(JSON.parse(await file.text()));
+      if (!window.confirm('Restaurer cette sauvegarde remplacera toutes vos données actuelles. Continuer ?')) return;
+      replaceAllData(restored);
+      setJsonMsg({ ok: true, text: 'Sauvegarde restaurée.' });
+    } catch (e) {
+      setJsonMsg({
+        ok: false,
+        text: e instanceof Error ? `Sauvegarde invalide : ${e.message}` : 'Sauvegarde invalide.'
+      });
     }
   };
 
@@ -46,7 +63,6 @@ export const ConnectionsPage: React.FC = () => {
       return;
     }
     try {
-      const header = rows[0].map(h => h.trim().toLowerCase());
       if (selectedKind === 'bank') {
         const comptes = buildComptesFromCsv(rows);
         comptes.forEach(c => addCompte({
@@ -73,8 +89,8 @@ export const ConnectionsPage: React.FC = () => {
       }
       setRows([]);
       setFileName('');
-    } catch (e: any) {
-      setError(e?.message || 'Import impossible. Vérifiez le format du fichier.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Import impossible. Vérifiez le format du fichier.');
     }
   };
 
@@ -94,6 +110,9 @@ export const ConnectionsPage: React.FC = () => {
         <ul className="list-disc ml-6 text-sm text-gray-700 mt-1">
           <li><b>Banque</b>: en-têtes requis — <code>nomCompte,banque,type,soldeActuel,derniereMiseAJour,notes</code></li>
           <li><b>Broker</b>: en-têtes requis — <code>nom,type,dateAchat,montantInvesti,valorisationActuelle,revenusGeneres,notes</code></li>
+          <li><b>Séparateur</b>: virgule (<code>,</code>) ou point-virgule (<code>;</code>), détecté automatiquement sur la ligne d'en-tête (Excel FR exporte en <code>;</code>).</li>
+          <li><b>Cellules</b>: une cellule entre guillemets peut contenir le séparateur, un retour à la ligne, ou un guillemet doublé (<code>""</code>).</li>
+          <li><b>Montants</b>: format français (<code>1 234,56</code>) ou anglais (<code>1234.56</code>). Une valeur illisible vaut 0.</li>
         </ul>
       </div>
 
@@ -176,6 +195,38 @@ export const ConnectionsPage: React.FC = () => {
               <button onClick={handleImport} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">Importer</button>
               <button onClick={() => { setRows([]); setFileName(''); setError(''); setSuccessMsg(''); }} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors">Annuler</button>
             </div>
+          </div>
+        )}
+      </div>
+
+      <div className="modern-card p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Database className="w-6 h-6 text-purple-600" />
+          <h3 className="text-lg font-semibold text-gray-900">Restaurer une sauvegarde JSON</h3>
+        </div>
+        <p className="text-gray-600 text-sm mb-4">
+          Recharge un fichier obtenu via « Exporter vos données &gt; Données complètes (JSON) ».
+          Toutes les données actuelles seront remplacées.
+        </p>
+        <label className="flex items-center gap-2 cursor-pointer px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors w-fit">
+          <Upload className="w-4 h-4" />
+          <span>Choisir une sauvegarde JSON</span>
+          <input
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleRestoreJSON(f);
+              e.target.value = '';
+            }}
+          />
+        </label>
+
+        {jsonMsg && (
+          <div className={`flex items-center gap-2 rounded-lg p-3 mt-4 border ${jsonMsg.ok ? 'text-green-700 bg-green-50 border-green-200' : 'text-red-700 bg-red-50 border-red-200'}`}>
+            {jsonMsg.ok ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+            <span className="text-sm">{jsonMsg.text}</span>
           </div>
         )}
       </div>

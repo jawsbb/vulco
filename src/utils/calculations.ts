@@ -1,4 +1,4 @@
-import { PatrimoineData, Placement, Immobilier } from '../types';
+import { PatrimoineData } from '../types';
 
 export const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('fr-FR', {

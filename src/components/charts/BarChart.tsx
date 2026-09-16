@@ -6,6 +6,24 @@ interface BarChartProps {
   data: Placement[];
 }
 
+interface TooltipEntry {
+  value?: number;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string;
+}
+
+interface PlacementGroup {
+  type: string;
+  totalInvesti: number;
+  totalValorise: number;
+  totalRevenus: number;
+  count: number;
+}
+
 export const BarChart: React.FC<BarChartProps> = ({ data }) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('fr-FR', {
@@ -20,7 +38,7 @@ export const BarChart: React.FC<BarChartProps> = ({ data }) => {
     return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       const plusValue = payload[0]?.value || 0;
       const performance = payload[1]?.value || 0;
@@ -69,9 +87,9 @@ export const BarChart: React.FC<BarChartProps> = ({ data }) => {
     acc[type].count += 1;
     
     return acc;
-  }, {} as Record<string, any>);
+  }, {} as Record<string, PlacementGroup>);
 
-  const chartData = Object.values(groupedData).map((group: any) => {
+  const chartData = Object.values(groupedData).map((group) => {
     const plusValue = group.totalValorise - group.totalInvesti + group.totalRevenus;
     const performance = group.totalInvesti > 0 
       ? ((group.totalValorise + group.totalRevenus - group.totalInvesti) / group.totalInvesti) * 100 

@@ -1,8 +1,6 @@
 import { PatrimoineData } from '../types';
 
 export const generateSampleData = (): PatrimoineData => {
-  const currentDate = new Date();
-  const currentMonth = currentDate.toISOString().substring(0, 7);
 
   return {
     placements: [

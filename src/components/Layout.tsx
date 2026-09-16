@@ -35,7 +35,6 @@ const menuItems = [
 
 const bottomMenuItems = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'settings', label: 'Paramètres', icon: Settings },
 ];
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageChange }) => {

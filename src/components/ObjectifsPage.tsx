@@ -12,24 +12,24 @@ import {
   CreditCard,
   Home,
   DollarSign,
-  Calendar,
   BarChart3
 } from 'lucide-react';
 import { usePatrimoine } from '../hooks/usePatrimoine';
+import type { LucideIcon } from 'lucide-react';
 import { ObjectifFinancier } from '../types';
 import { 
   calculateObjectifProgression, 
   getObjectifStatut, 
-  getObjectifCouleur, 
-  getObjectifIcone,
   generateObjectifSuggestions,
-  getObjectifAlertes
+  getObjectifAlertes,
+  getObjectifCouleur,
+  getObjectifIcone
 } from '../utils/objectifsUtils';
 import { formatCurrency } from '../utils/calculations';
 
 // Fonction utilitaire pour obtenir le composant icône
 const getIconComponent = (iconName: string) => {
-  const icons: { [key: string]: React.ComponentType<any> } = {
+  const icons: { [key: string]: LucideIcon } = {
     TrendingUp,
     PiggyBank,
     CreditCard,
@@ -48,8 +48,23 @@ export const ObjectifsPage: React.FC = () => {
 
   const suggestions = generateObjectifSuggestions(data);
 
-  const handleAddObjectif = (objectifData: Omit<ObjectifFinancier, 'id' | 'dateCreation' | 'progression'>) => {
-    addObjectif(objectifData);
+  const handleAddObjectif = (objectifData: Partial<ObjectifFinancier>) => {
+    // Le formulaire et les suggestions ne fournissent qu'une partie des champs :
+    // on complète ici pour que l'objectif créé soit toujours complet.
+    const type = objectifData.type ?? 'epargne';
+    addObjectif({
+      titre: objectifData.titre ?? '',
+      description: objectifData.description ?? '',
+      type,
+      montantCible: objectifData.montantCible ?? 0,
+      montantActuel: objectifData.montantActuel ?? 0,
+      dateLimite: objectifData.dateLimite ?? new Date().toISOString().split('T')[0],
+      statut: objectifData.statut ?? 'en_cours',
+      priorite: objectifData.priorite ?? 'moyenne',
+      couleur: objectifData.couleur ?? getObjectifCouleur(type),
+      icone: objectifData.icone ?? getObjectifIcone(type),
+      notes: objectifData.notes ?? ''
+    });
     setShowAddModal(false);
   };
 
@@ -292,15 +307,20 @@ export const ObjectifsPage: React.FC = () => {
 };
 
 // Composant Modal pour ajouter/éditer un objectif
+type ObjectifFormData = Pick<
+  ObjectifFinancier,
+  'titre' | 'description' | 'type' | 'montantCible' | 'dateLimite' | 'priorite' | 'notes'
+>;
+
 interface ObjectifModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: ObjectifFormData) => void;
   objectif?: ObjectifFinancier | null;
 }
 
 const ObjectifModal: React.FC<ObjectifModalProps> = ({ isOpen, onClose, onSubmit, objectif }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ObjectifFormData>({
     titre: objectif?.titre || '',
     description: objectif?.description || '',
     type: objectif?.type || 'epargne',
@@ -357,7 +377,7 @@ const ObjectifModal: React.FC<ObjectifModalProps> = ({ isOpen, onClose, onSubmit
               <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
               <select
                 value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value as ObjectifFinancier['type'] })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="epargne">Épargne</option>
@@ -372,7 +392,7 @@ const ObjectifModal: React.FC<ObjectifModalProps> = ({ isOpen, onClose, onSubmit
               <label className="block text-sm font-medium text-gray-700 mb-2">Priorité</label>
               <select
                 value={formData.priorite}
-                onChange={(e) => setFormData({ ...formData, priorite: e.target.value as any })}
+                onChange={(e) => setFormData({ ...formData, priorite: e.target.value as ObjectifFinancier['priorite'] })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="basse">Basse</option>
@@ -443,7 +463,7 @@ interface SuggestionsModalProps {
   isOpen: boolean;
   onClose: () => void;
   suggestions: Partial<ObjectifFinancier>[];
-  onAddObjectif: (data: any) => void;
+  onAddObjectif: (data: Partial<ObjectifFinancier>) => void;
 }
 
 const SuggestionsModal: React.FC<SuggestionsModalProps> = ({ isOpen, onClose, suggestions, onAddObjectif }) => {

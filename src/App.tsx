@@ -10,6 +10,7 @@ import { ObjectifsPage } from './components/ObjectifsPage';
 import { NotificationsPage } from './components/NotificationsPage';
 import { FiscalPage } from './components/FiscalPage';
 import { ConnectionsPage } from './components/ConnectionsPage';
+import { PatrimoineProvider } from './hooks/PatrimoineContext';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -42,9 +43,11 @@ function App() {
   };
 
   return (
-    <Layout currentPage={currentPage} onPageChange={setCurrentPage}>
-      {renderPage()}
-    </Layout>
+    <PatrimoineProvider>
+      <Layout currentPage={currentPage} onPageChange={setCurrentPage}>
+        {renderPage()}
+      </Layout>
+    </PatrimoineProvider>
   );
 }
 

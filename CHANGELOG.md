@@ -1,5 +1,16 @@
 # 📊 Changelog - Application de Suivi de Patrimoine
 
+## Non publié - 2026-09-16
+
+- Build réparé.
+- État applicatif centralisé dans un Provider React (`PatrimoineContext`).
+- Identifiants générés en UUID.
+- Import/export CSV conforme RFC 4180, séparateur `,` ou `;` détecté automatiquement.
+- Restauration d'une sauvegarde JSON depuis la page Connexions.
+- Corrections des calculs fiscaux : IFI au taux de 0,5 % sur la base immobilière seule ; calcul des plus-values corrigé.
+- Tests Vitest et intégration continue GitHub Actions.
+- Lint et typecheck à zéro erreur.
+
 ## Version 2.0.0 - Graphiques Interactifs & Export (Juillet 2024)
 
 ### 🎨 **Nouvelles Fonctionnalités Majeures**
@@ -29,11 +40,6 @@
 - Graphiques adaptés aux petits écrans
 - Résumés mobiles pour les données complexes
 - Navigation tactile optimisée
-
-#### ⚡ **Performance**
-- Composants optimisés avec `React.memo`
-- Chargement conditionnel des graphiques
-- Gestion intelligente des re-rendus
 
 #### 🎨 **Interface Utilisateur**
 - Nouvelles icônes Lucide React

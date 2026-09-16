@@ -1,25 +1,20 @@
 import { PatrimoineData, CalculFiscal } from '../types';
 
-// Seuils IFI 2024
-const SEUIL_IFI = 1300000; // 1.3M€
-const TAUX_IFI = 0.5; // 0.5% à 1.7% selon la valeur
+// Seuils IFI (estimation simplifiée, non vérifiée sur le barème officiel)
+const SEUIL_IFI = 1300000; // 1.3M€ : imposable à partir de ce montant
+const TAUX_IFI = 0.005; // 0,5 % : taux unique simplifié (le barème réel est progressif de 0,5 % à 1,5 %)
 
-// Seuils plus-values 2024
+// Seuils plus-values (estimation simplifiée)
 const SEUIL_PLUS_VALUE_IMMOBILIERE = 15000; // 15k€ par an
 const SEUIL_PLUS_VALUE_MOBILIERE = 5000; // 5k€ par an
 
 export const calculateIFI = (data: PatrimoineData): CalculFiscal['ifi'] => {
-  // Calcul de la valeur imposable (immobilier + placements)
-  const valeurImmobilier = data.immobilier.reduce((sum, bien) => {
+  // L'IFI ne porte que sur l'immobilier : les placements financiers sont hors base.
+  const valeurImposable = data.immobilier.reduce((sum, bien) => {
     return sum + bien.valorisationActuelle;
   }, 0);
 
-  const valeurPlacements = data.placements.reduce((sum, placement) => {
-    return sum + placement.valorisationActuelle;
-  }, 0);
-
-  const valeurImposable = valeurImmobilier + valeurPlacements;
-  const exonere = valeurImposable < SEUIL_IFI;
+  const exonere = valeurImposable <= SEUIL_IFI;
 
   if (exonere) {
     return {
@@ -51,7 +46,8 @@ export const calculatePlusValues = (data: PatrimoineData): CalculFiscal['plusVal
 
   // Plus-values mobilières
   const plusValueMobiliere = data.placements.reduce((sum, placement) => {
-    const plusValue = placement.valorisationActuelle - placement.montantInvesti + placement.revenusGeneres;
+    // Plus-value latente uniquement : les revenus déjà perçus sont comptés dans calculateRevenus.
+    const plusValue = placement.valorisationActuelle - placement.montantInvesti;
     return sum + Math.max(0, plusValue);
   }, 0);
 
@@ -60,7 +56,7 @@ export const calculatePlusValues = (data: PatrimoineData): CalculFiscal['plusVal
   // Calcul de l'imposition (simplifié)
   let imposition = 0;
   if (plusValueImmobiliere > SEUIL_PLUS_VALUE_IMMOBILIERE) {
-    imposition += (plusValueImmobiliere - SEUIL_PLUS_VALUE_IMMOBILIERE) * 0.19; // 19% + prélèvements sociaux
+    imposition += (plusValueImmobiliere - SEUIL_PLUS_VALUE_IMMOBILIERE) * 0.19; // 19 % (prélèvements sociaux non comptés)
   }
   if (plusValueMobiliere > SEUIL_PLUS_VALUE_MOBILIERE) {
     imposition += (plusValueMobiliere - SEUIL_PLUS_VALUE_MOBILIERE) * 0.30; // 30% flat tax

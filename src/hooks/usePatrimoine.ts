@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { PatrimoineData, Placement, Immobilier, CompteEpargne, Credit, HistoriqueMensuel, ObjectifFinancier, Notification, CalculFiscal } from '../types';
 import { generateSampleData } from '../utils/sampleData';
 import { generateNotifications } from '../utils/notificationsUtils';
 import { calculateObjectifProgression, getObjectifStatut } from '../utils/objectifsUtils';
-import { calculateFiscalYear } from '../utils/fiscalCalculations';
 
-const initialData: PatrimoineData = {
+const STORAGE_KEY = 'patrimoine-data';
+
+const emptyData = (): PatrimoineData => ({
   placements: [],
   immobilier: [],
   comptes: [],
@@ -14,300 +15,229 @@ const initialData: PatrimoineData = {
   objectifs: [],
   notifications: [],
   calculsFiscaux: []
+});
+
+const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+const loadData = (): PatrimoineData => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return emptyData();
+    const parsed = JSON.parse(saved) as Partial<PatrimoineData>;
+    return {
+      placements: asArray<Placement>(parsed.placements),
+      immobilier: asArray<Immobilier>(parsed.immobilier),
+      comptes: asArray<CompteEpargne>(parsed.comptes),
+      credits: asArray<Credit>(parsed.credits),
+      historique: asArray<HistoriqueMensuel>(parsed.historique),
+      objectifs: asArray<ObjectifFinancier>(parsed.objectifs),
+      notifications: asArray<Notification>(parsed.notifications),
+      calculsFiscaux: asArray<CalculFiscal>(parsed.calculsFiscaux)
+    };
+  } catch (e) {
+    console.warn('Données patrimoine illisibles, réinitialisation :', e);
+    return emptyData();
+  }
 };
 
-export const usePatrimoine = () => {
-  const [data, setData] = useState<PatrimoineData>(initialData);
+type Item<K extends keyof PatrimoineData> = PatrimoineData[K][number];
 
+/**
+ * État partagé du patrimoine. Instancié une seule fois par <PatrimoineProvider>.
+ */
+export const usePatrimoineState = () => {
+  const [data, setData] = useState<PatrimoineData>(loadData);
+
+  // Persistance unique : toute mutation de l'état est écrite ici.
   useEffect(() => {
-    const savedData = localStorage.getItem('patrimoine-data');
-    if (savedData) {
-      const parsedData = JSON.parse(savedData);
-      // Assurer la compatibilité avec les anciennes données
-      const updatedData = {
-        ...parsedData,
-        objectifs: parsedData.objectifs || [],
-        notifications: parsedData.notifications || [],
-        calculsFiscaux: parsedData.calculsFiscaux || []
-      };
-      setData(updatedData);
-    }
-  }, []);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }, [data]);
 
-  const saveData = (newData: PatrimoineData) => {
-    setData(newData);
-    localStorage.setItem('patrimoine-data', JSON.stringify(newData));
-  };
+  // Mise à jour automatique des objectifs et notifications.
+  useEffect(() => {
+    if (data.placements.length === 0 && data.immobilier.length === 0 && data.comptes.length === 0) return;
 
-  // Fonctions existantes pour les placements
-  const addPlacement = (placement: Omit<Placement, 'id'>) => {
-    const newPlacement = { ...placement, id: Date.now().toString() };
-    const newData = { ...data, placements: [...data.placements, newPlacement] };
-    saveData(newData);
-  };
+    setData(prev => {
+      const objectifs = prev.objectifs.map(objectif => {
+        const progression = calculateObjectifProgression(objectif, prev);
+        const statut = getObjectifStatut(objectif, progression);
+        return objectif.progression === progression && objectif.statut === statut
+          ? objectif
+          : { ...objectif, progression, statut };
+      });
 
-  const updatePlacement = (id: string, placement: Partial<Placement>) => {
-    const newData = {
-      ...data,
-      placements: data.placements.map(p => p.id === id ? { ...p, ...placement } : p)
-    };
-    saveData(newData);
-  };
+      const existingIds = new Set(prev.notifications.map(n => n.id));
+      const nouvelles = generateNotifications(prev).filter(n => !existingIds.has(n.id));
 
-  const deletePlacement = (id: string) => {
-    const newData = { ...data, placements: data.placements.filter(p => p.id !== id) };
-    saveData(newData);
-  };
+      const objectifsChanged = objectifs.some((o, i) => o !== prev.objectifs[i]);
+      if (!objectifsChanged && nouvelles.length === 0) return prev;
 
-  // Fonctions existantes pour l'immobilier
-  const addImmobilier = (immobilier: Omit<Immobilier, 'id'>) => {
-    const newImmobilier = { ...immobilier, id: Date.now().toString() };
-    const newData = { ...data, immobilier: [...data.immobilier, newImmobilier] };
-    saveData(newData);
-  };
+      return { ...prev, objectifs, notifications: [...prev.notifications, ...nouvelles] };
+    });
+  }, [data.placements, data.immobilier, data.comptes, data.credits, data.historique, data.objectifs]);
 
-  const updateImmobilier = (id: string, immobilier: Partial<Immobilier>) => {
-    const newData = {
-      ...data,
-      immobilier: data.immobilier.map(i => i.id === id ? { ...i, ...immobilier } : i)
-    };
-    saveData(newData);
-  };
+  return useMemo(() => {
+    const crud = <K extends keyof PatrimoineData>(key: K) => ({
+      add: (item: Omit<Item<K>, 'id'>) =>
+        setData(prev => ({
+          ...prev,
+          [key]: [...(prev[key] as { id: string }[]), { ...item, id: crypto.randomUUID() }]
+        } as PatrimoineData)),
+      update: (id: string, patch: Partial<Item<K>>) =>
+        setData(prev => ({
+          ...prev,
+          [key]: (prev[key] as { id: string }[]).map(e => (e.id === id ? { ...e, ...patch } : e))
+        } as PatrimoineData)),
+      remove: (id: string) =>
+        setData(prev => ({
+          ...prev,
+          [key]: (prev[key] as { id: string }[]).filter(e => e.id !== id)
+        } as PatrimoineData))
+    });
 
-  const deleteImmobilier = (id: string) => {
-    const newData = { ...data, immobilier: data.immobilier.filter(i => i.id !== id) };
-    saveData(newData);
-  };
+    const placements = crud('placements');
+    const immobilier = crud('immobilier');
+    const comptes = crud('comptes');
+    const credits = crud('credits');
+    const historique = crud('historique');
 
-  // Fonctions existantes pour les comptes
-  const addCompte = (compte: Omit<CompteEpargne, 'id'>) => {
-    const newCompte = { ...compte, id: Date.now().toString() };
-    const newData = { ...data, comptes: [...data.comptes, newCompte] };
-    saveData(newData);
-  };
+    const addObjectif = (objectif: Omit<ObjectifFinancier, 'id' | 'dateCreation' | 'progression'>) =>
+      setData(prev => ({
+        ...prev,
+        objectifs: [...prev.objectifs, {
+          ...objectif,
+          id: crypto.randomUUID(),
+          dateCreation: new Date().toISOString(),
+          progression: 0
+        }]
+      }));
 
-  const updateCompte = (id: string, compte: Partial<CompteEpargne>) => {
-    const newData = {
-      ...data,
-      comptes: data.comptes.map(c => c.id === id ? { ...c, ...compte } : c)
-    };
-    saveData(newData);
-  };
-
-  const deleteCompte = (id: string) => {
-    const newData = { ...data, comptes: data.comptes.filter(c => c.id !== id) };
-    saveData(newData);
-  };
-
-  // Fonctions existantes pour les crédits
-  const addCredit = (credit: Omit<Credit, 'id'>) => {
-    const newCredit = { ...credit, id: Date.now().toString() };
-    const newData = { ...data, credits: [...data.credits, newCredit] };
-    saveData(newData);
-  };
-
-  const updateCredit = (id: string, credit: Partial<Credit>) => {
-    const newData = {
-      ...data,
-      credits: data.credits.map(c => c.id === id ? { ...c, ...credit } : c)
-    };
-    saveData(newData);
-  };
-
-  const deleteCredit = (id: string) => {
-    const newData = { ...data, credits: data.credits.filter(c => c.id !== id) };
-    saveData(newData);
-  };
-
-  // Fonctions existantes pour l'historique
-  const addHistorique = (historique: Omit<HistoriqueMensuel, 'id'>) => {
-    const newHistorique = { ...historique, id: Date.now().toString() };
-    const newData = { ...data, historique: [...data.historique, newHistorique] };
-    saveData(newData);
-  };
-
-  const updateHistorique = (id: string, historique: Partial<HistoriqueMensuel>) => {
-    const newData = {
-      ...data,
-      historique: data.historique.map(h => h.id === id ? { ...h, ...historique } : h)
-    };
-    saveData(newData);
-  };
-
-  const deleteHistorique = (id: string) => {
-    const newData = { ...data, historique: data.historique.filter(h => h.id !== id) };
-    saveData(newData);
-  };
-
-  // Nouvelles fonctions pour les objectifs financiers
-  const addObjectif = (objectif: Omit<ObjectifFinancier, 'id' | 'dateCreation' | 'progression'>) => {
-    const newObjectif: ObjectifFinancier = {
-      ...objectif,
-      id: Date.now().toString(),
-      dateCreation: new Date().toISOString(),
-      progression: 0
-    };
-    const newData = { ...data, objectifs: [...data.objectifs, newObjectif] };
-    saveData(newData);
-  };
-
-  const updateObjectif = (id: string, objectif: Partial<ObjectifFinancier>) => {
-    const newData = {
-      ...data,
-      objectifs: data.objectifs.map(o => {
-        if (o.id === id) {
+    const updateObjectif = (id: string, objectif: Partial<ObjectifFinancier>) =>
+      setData(prev => ({
+        ...prev,
+        objectifs: prev.objectifs.map(o => {
+          if (o.id !== id) return o;
           const updated = { ...o, ...objectif };
-          // Recalculer la progression
-          updated.progression = calculateObjectifProgression(updated, data);
+          updated.progression = calculateObjectifProgression(updated, prev);
           updated.statut = getObjectifStatut(updated, updated.progression);
           return updated;
-        }
-        return o;
-      })
+        })
+      }));
+
+    const deleteObjectif = (id: string) =>
+      setData(prev => ({ ...prev, objectifs: prev.objectifs.filter(o => o.id !== id) }));
+
+    const addNotification = (notification: Omit<Notification, 'id' | 'dateCreation'>) =>
+      setData(prev => ({
+        ...prev,
+        notifications: [...prev.notifications, {
+          ...notification,
+          id: crypto.randomUUID(),
+          dateCreation: new Date().toISOString(),
+          lue: false
+        }]
+      }));
+
+    const markNotificationAsRead = (notificationId: string) =>
+      setData(prev => ({
+        ...prev,
+        notifications: prev.notifications.map(n =>
+          n.id === notificationId ? { ...n, lue: true, dateLecture: new Date().toISOString() } : n
+        )
+      }));
+
+    const deleteNotification = (notificationId: string) =>
+      setData(prev => ({ ...prev, notifications: prev.notifications.filter(n => n.id !== notificationId) }));
+
+    const markAllNotificationsAsRead = () =>
+      setData(prev => ({
+        ...prev,
+        notifications: prev.notifications.map(n => ({ ...n, lue: true, dateLecture: new Date().toISOString() }))
+      }));
+
+    const addCalculFiscal = (calcul: Omit<CalculFiscal, 'id' | 'dateCalcul'>) =>
+      setData(prev => ({
+        ...prev,
+        calculsFiscaux: [...prev.calculsFiscaux, {
+          ...calcul,
+          id: `fiscal-${calcul.annee}`,
+          dateCalcul: new Date().toISOString()
+        }]
+      }));
+
+    const updateCalculFiscal = (id: string, calcul: Partial<CalculFiscal>) =>
+      setData(prev => ({
+        ...prev,
+        calculsFiscaux: prev.calculsFiscaux.map(c => (c.id === id ? { ...c, ...calcul } : c))
+      }));
+
+    const deleteCalculFiscal = (id: string) =>
+      setData(prev => ({ ...prev, calculsFiscaux: prev.calculsFiscaux.filter(c => c.id !== id) }));
+
+    const generateAutoNotifications = () =>
+      setData(prev => {
+        const existingIds = new Set(prev.notifications.map(n => n.id));
+        const nouvelles = generateNotifications(prev).filter(n => !existingIds.has(n.id));
+        return nouvelles.length === 0
+          ? prev
+          : { ...prev, notifications: [...prev.notifications, ...nouvelles] };
+      });
+
+    const updateObjectifsProgressions = () =>
+      setData(prev => ({
+        ...prev,
+        objectifs: prev.objectifs.map(objectif => {
+          const progression = calculateObjectifProgression(objectif, prev);
+          return { ...objectif, progression, statut: getObjectifStatut(objectif, progression) };
+        })
+      }));
+
+    const loadSampleData = () => setData(generateSampleData());
+
+    /** Remplace intégralement l'état (restauration d'une sauvegarde JSON). */
+    const replaceAllData = (next: PatrimoineData) => setData(next);
+
+    return {
+      data,
+      addPlacement: placements.add,
+      updatePlacement: placements.update,
+      deletePlacement: placements.remove,
+      addImmobilier: immobilier.add,
+      updateImmobilier: immobilier.update,
+      deleteImmobilier: immobilier.remove,
+      addCompte: comptes.add,
+      updateCompte: comptes.update,
+      deleteCompte: comptes.remove,
+      addCredit: credits.add,
+      updateCredit: credits.update,
+      deleteCredit: credits.remove,
+      addHistorique: historique.add,
+      updateHistorique: historique.update,
+      deleteHistorique: historique.remove,
+      loadSampleData,
+      replaceAllData,
+      addObjectif,
+      updateObjectif,
+      deleteObjectif,
+      addNotification,
+      markNotificationAsRead,
+      deleteNotification,
+      markAllNotificationsAsRead,
+      addCalculFiscal,
+      updateCalculFiscal,
+      deleteCalculFiscal,
+      generateAutoNotifications,
+      updateObjectifsProgressions
     };
-    saveData(newData);
-  };
+  }, [data]);
+};
 
-  const deleteObjectif = (id: string) => {
-    const newData = { ...data, objectifs: data.objectifs.filter(o => o.id !== id) };
-    saveData(newData);
-  };
+export type PatrimoineContextValue = ReturnType<typeof usePatrimoineState>;
 
-  // Nouvelles fonctions pour les notifications
-  const addNotification = (notification: Omit<Notification, 'id' | 'dateCreation'>) => {
-    const newNotification: Notification = {
-      ...notification,
-      id: Date.now().toString(),
-      dateCreation: new Date().toISOString(),
-      lue: false
-    };
-    const newData = { ...data, notifications: [...data.notifications, newNotification] };
-    saveData(newData);
-  };
+export const PatrimoineContext = createContext<PatrimoineContextValue | null>(null);
 
-  const markNotificationAsRead = (notificationId: string) => {
-    const newData = {
-      ...data,
-      notifications: data.notifications.map(n => 
-        n.id === notificationId 
-          ? { ...n, lue: true, dateLecture: new Date().toISOString() }
-          : n
-      )
-    };
-    saveData(newData);
-  };
-
-  const deleteNotification = (notificationId: string) => {
-    const newData = { ...data, notifications: data.notifications.filter(n => n.id !== notificationId) };
-    saveData(newData);
-  };
-
-  const markAllNotificationsAsRead = () => {
-    const newData = {
-      ...data,
-      notifications: data.notifications.map(n => ({
-        ...n,
-        lue: true,
-        dateLecture: new Date().toISOString()
-      }))
-    };
-    saveData(newData);
-  };
-
-  // Nouvelles fonctions pour les calculs fiscaux
-  const addCalculFiscal = (calcul: Omit<CalculFiscal, 'id' | 'dateCalcul'>) => {
-    const newCalcul: CalculFiscal = {
-      ...calcul,
-      id: `fiscal-${calcul.annee}`,
-      dateCalcul: new Date().toISOString()
-    };
-    const newData = { ...data, calculsFiscaux: [...data.calculsFiscaux, newCalcul] };
-    saveData(newData);
-  };
-
-  const updateCalculFiscal = (id: string, calcul: Partial<CalculFiscal>) => {
-    const newData = {
-      ...data,
-      calculsFiscaux: data.calculsFiscaux.map(c => c.id === id ? { ...c, ...calcul } : c)
-    };
-    saveData(newData);
-  };
-
-  const deleteCalculFiscal = (id: string) => {
-    const newData = { ...data, calculsFiscaux: data.calculsFiscaux.filter(c => c.id !== id) };
-    saveData(newData);
-  };
-
-  // Fonction pour générer automatiquement les notifications
-  const generateAutoNotifications = () => {
-    const newNotifications = generateNotifications(data);
-    const existingIds = new Set(data.notifications.map(n => n.id));
-    const uniqueNotifications = newNotifications.filter(n => !existingIds.has(n.id));
-    
-    if (uniqueNotifications.length > 0) {
-      const newData = { ...data, notifications: [...data.notifications, ...uniqueNotifications] };
-      saveData(newData);
-    }
-  };
-
-  // Fonction pour mettre à jour les progressions des objectifs
-  const updateObjectifsProgressions = () => {
-    const newData = {
-      ...data,
-      objectifs: data.objectifs.map(objectif => {
-        const progression = calculateObjectifProgression(objectif, data);
-        const statut = getObjectifStatut(objectif, progression);
-        return { ...objectif, progression, statut };
-      })
-    };
-    saveData(newData);
-  };
-
-  // Fonction pour charger les données d'exemple
-  const loadSampleData = () => {
-    const sampleData = generateSampleData();
-    saveData(sampleData);
-  };
-
-  // Mise à jour automatique des objectifs et notifications
-  useEffect(() => {
-    if (data.placements.length > 0 || data.immobilier.length > 0 || data.comptes.length > 0) {
-      updateObjectifsProgressions();
-      generateAutoNotifications();
-    }
-  }, [data.placements, data.immobilier, data.comptes, data.credits, data.historique]);
-
-  return {
-    data,
-    // Fonctions existantes
-    addPlacement,
-    updatePlacement,
-    deletePlacement,
-    addImmobilier,
-    updateImmobilier,
-    deleteImmobilier,
-    addCompte,
-    updateCompte,
-    deleteCompte,
-    addCredit,
-    updateCredit,
-    deleteCredit,
-    addHistorique,
-    updateHistorique,
-    deleteHistorique,
-    loadSampleData,
-    // Nouvelles fonctions
-    addObjectif,
-    updateObjectif,
-    deleteObjectif,
-    addNotification,
-    markNotificationAsRead,
-    deleteNotification,
-    markAllNotificationsAsRead,
-    addCalculFiscal,
-    updateCalculFiscal,
-    deleteCalculFiscal,
-    generateAutoNotifications,
-    updateObjectifsProgressions
-  };
+export const usePatrimoine = (): PatrimoineContextValue => {
+  const ctx = useContext(PatrimoineContext);
+  if (!ctx) throw new Error('usePatrimoine doit être utilisé à l\'intérieur d\'un <PatrimoineProvider>.');
+  return ctx;
 };

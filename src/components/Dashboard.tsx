@@ -1,23 +1,21 @@
 import React, { useState } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, PieChart as PieChartIcon, BarChart3, Activity, Database, Download, ArrowUpRight, ArrowDownRight, MoreHorizontal, Target, Bell, Calculator } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Activity, Database, ArrowUpRight, ArrowDownRight, MoreHorizontal } from 'lucide-react';
 import { usePatrimoine } from '../hooks/usePatrimoine';
 import { PieChart, LineChart, BarChart } from './charts';
 import { ExportModal } from './ExportModal';
 import {
   calculateTotalActifs,
-  calculateTotalPassif,
   calculatePatrimoineNet,
   getRepartitionActifs,
   formatCurrency
 } from '../utils/calculations';
-import { calculateObjectifProgression, getObjectifStatut } from '../utils/objectifsUtils';
+import { calculateObjectifProgression } from '../utils/objectifsUtils';
 
 export const Dashboard: React.FC = () => {
   const { data, loadSampleData } = usePatrimoine();
   const [showExportModal, setShowExportModal] = useState(false);
 
   const totalActifs = calculateTotalActifs(data);
-  const totalPassif = calculateTotalPassif(data);
   const patrimoineNet = calculatePatrimoineNet(data);
   const repartition = getRepartitionActifs(data);
 
@@ -34,7 +32,6 @@ export const Dashboard: React.FC = () => {
   };
 
   const actifVariation = previousHistorique ? getVariationPercentage(totalActifs, previousHistorique.valeurTotaleActifs) : 0;
-  const passifVariation = previousHistorique ? getVariationPercentage(totalPassif, previousHistorique.totalPassif) : 0;
   const patrimoineVariation = previousHistorique ? getVariationPercentage(patrimoineNet, previousHistorique.valeurTotaleActifs - previousHistorique.totalPassif) : 0;
 
   // Objectifs en cours
@@ -325,7 +322,7 @@ export const Dashboard: React.FC = () => {
                 {data.historique
                   .sort((a, b) => new Date(b.moisAnnee).getTime() - new Date(a.moisAnnee).getTime())
                   .slice(0, 4)
-                  .map((h, index) => (
+                  .map((h) => (
                     <div key={h.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-smooth">
                       <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center transition-smooth">
                         <Activity className="w-5 h-5 text-blue-600" />
