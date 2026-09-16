@@ -1,4 +1,4 @@
-import { Notification, ObjectifFinancier, PatrimoineData } from '../types';
+import { Notification, PatrimoineData } from '../types';
 import { calculateObjectifProgression, getObjectifStatut, getObjectifAlertes } from './objectifsUtils';
 import { calculateFiscalYear } from './fiscalCalculations';
 
@@ -30,10 +30,10 @@ export const generateNotifications = (data: PatrimoineData): Notification[] => {
     }
 
     // Notifications d'alerte pour les objectifs
-    alertes.forEach(alerte => {
+    alertes.forEach((alerte, index) => {
       if (!notifications.some(n => n.message.includes(alerte))) {
         notifications.push({
-          id: `objectif-${objectif.id}-alerte-${Date.now()}`,
+          id: `objectif-${objectif.id}-alerte-${index}`,
           titre: '⚠️ Alerte objectif',
           message: `${objectif.titre} : ${alerte}`,
           type: 'warning',

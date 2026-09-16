@@ -1,12 +1,19 @@
 import React, { memo } from 'react';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
+interface PieDatum {
+  name: string;
+  value: number;
+  percentage: number;
+}
+
 interface PieChartProps {
-  data: Array<{
-    name: string;
-    value: number;
-    percentage: number;
-  }>;
+  data: PieDatum[];
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: PieDatum }>;
 }
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
@@ -21,7 +28,7 @@ export const PieChart: React.FC<PieChartProps> = memo(({ data }) => {
     }).format(value);
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
@@ -58,7 +65,7 @@ export const PieChart: React.FC<PieChartProps> = memo(({ data }) => {
               label={({ percentage }) => `${percentage.toFixed(0)}%`}
               labelLine={false}
             >
-              {data.map((entry, index) => (
+              {data.map((_, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>

@@ -11,16 +11,14 @@ import {
   EyeOff,
   BarChart3,
   DollarSign,
-  Home,
-  CreditCard
+  Home
 } from 'lucide-react';
 import { usePatrimoine } from '../hooks/usePatrimoine';
-import { CalculFiscal } from '../types';
 import { calculateFiscalYear, getFiscalOptimizations } from '../utils/fiscalCalculations';
 import { formatCurrency } from '../utils/calculations';
 
 export const FiscalPage: React.FC = () => {
-  const { data, addCalculFiscal, updateCalculFiscal, deleteCalculFiscal } = usePatrimoine();
+  const { data, addCalculFiscal } = usePatrimoine();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showDetails, setShowDetails] = useState(false);
 
@@ -33,20 +31,10 @@ export const FiscalPage: React.FC = () => {
     addCalculFiscal(fiscalData);
   };
 
-  const formatPercentage = (value: number) => {
-    return `${value.toFixed(2)}%`;
-  };
-
   const getTaxColor = (amount: number) => {
     if (amount === 0) return 'text-green-600';
     if (amount < 1000) return 'text-orange-600';
     return 'text-red-600';
-  };
-
-  const getTaxSeverity = (amount: number) => {
-    if (amount === 0) return 'success';
-    if (amount < 1000) return 'warning';
-    return 'error';
   };
 
   return (
@@ -73,6 +61,14 @@ export const FiscalPage: React.FC = () => {
             Calculer {selectedYear}
           </button>
         </div>
+      </div>
+
+      {/* Avertissement : ces calculs sont indicatifs */}
+      <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+        <Info className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+        <p className="text-sm text-amber-800">
+          Estimation simplifiée, à titre indicatif : barème IFI et impôt sur le revenu non détaillés, ne remplace pas un calcul fiscal officiel.
+        </p>
       </div>
 
       {/* Sélecteur d'année */}

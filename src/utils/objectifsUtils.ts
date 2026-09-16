@@ -15,25 +15,31 @@ export const calculateObjectifProgression = (objectif: ObjectifFinancier, data: 
       montantActuel = data.placements.reduce((sum, placement) => sum + placement.valorisationActuelle, 0);
       break;
 
-    case 'remboursement':
+    case 'remboursement': {
       // Calcul basé sur la réduction des crédits
       const totalInitial = data.credits.reduce((sum, credit) => sum + credit.montantInitial, 0);
       const totalRestant = data.credits.reduce((sum, credit) => sum + credit.capitalRestantDu, 0);
       const rembourse = totalInitial - totalRestant;
       montantActuel = rembourse;
       break;
+    }
 
     case 'patrimoine':
       // Calcul basé sur le patrimoine net total
       montantActuel = calculatePatrimoineNet(data);
       break;
 
-    case 'revenu':
+    case 'revenu': {
       // Calcul basé sur les revenus passifs
       const revenusPlacements = data.placements.reduce((sum, p) => sum + p.revenusGeneres, 0);
       const revenusImmobilier = data.immobilier.reduce((sum, i) => sum + (i.revenusLocatifsMensuels * 12), 0);
       montantActuel = revenusPlacements + revenusImmobilier;
       break;
+    }
+  }
+
+  if (objectif.montantCible <= 0) {
+    return 0;
   }
 
   const progression = Math.min(100, (montantActuel / objectif.montantCible) * 100);

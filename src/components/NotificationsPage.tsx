@@ -4,7 +4,6 @@ import {
   CheckCircle, 
   AlertTriangle, 
   Info, 
-  X, 
   Trash2,
   Check,
   Filter,
@@ -189,7 +188,7 @@ export const NotificationsPage: React.FC = () => {
             <span className="text-sm font-medium text-gray-700">Type:</span>
             <select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as any)}
+              onChange={(e) => setTypeFilter(e.target.value as Notification['type'] | 'all')}
               className="px-3 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Tous les types</option>
